@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
-// Importujemy nasze nowe podstrony
 import Movies from './pages/Movies';
 import Actors from './pages/Actors';
 import Genres from './pages/Genres';
 import MyRatings from './pages/MyRatings';
+import MovieDetails from './pages/MovieDetails';
 
 function App() {
   const [showForm, setShowForm] = useState(false);
@@ -261,6 +261,7 @@ function App() {
             <Route path="/aktorzy" element={<Actors />} />
             <Route path="/gatunki" element={<Genres />} />
             <Route path="/oceny" element={<MyRatings user={user} />} />
+            <Route path="/film/:id" element={<MovieDetails user={user} />} />
           </Routes>
         </main>
 

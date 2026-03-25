@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { Link } from 'react-router-dom';
 
 const VISIBLE_STEP = 6;
 
@@ -100,17 +101,17 @@ export default function Movies() {
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
               {visibleMovies.map(movie => (
-                <div key={movie.id} className="group relative bg-[#111] rounded-xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-300 hover:-translate-y-1 cursor-pointer">
-                  <div className="relative w-full aspect-[2/3] overflow-hidden">
-                    <img src={movie.plakat_url || `https://placehold.co/500x750/111/222?text=${encodeURIComponent(movie.tytul)}`} alt={movie.tytul} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={e => { e.target.src = `https://placehold.co/500x750/111/222?text=${encodeURIComponent(movie.tytul)}`; }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent"/>
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <h3 className="text-sm font-bold leading-tight text-white">{movie.tytul}</h3>
-                      {movie.rok_produkcji && <div className="text-white/40 text-xs mt-0.5">{movie.rok_produkcji}</div>}
-                    </div>
-                  </div>
-                </div>
-              ))}
+  <Link to={`/film/${movie.id}`} key={movie.id} className="group relative bg-[#111] rounded-xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-300 hover:-translate-y-1 block">
+    <div className="relative w-full aspect-[2/3] overflow-hidden">
+      <img src={movie.plakat_url || `https://placehold.co/500x750/111/222?text=${encodeURIComponent(movie.tytul)}`} alt={movie.tytul} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={e => { e.target.src = `https://placehold.co/500x750/111/222?text=${encodeURIComponent(movie.tytul)}`; }} />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent"/>
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        <h3 className="text-sm font-bold leading-tight text-white">{movie.tytul}</h3>
+        {movie.rok_produkcji && <div className="text-white/40 text-xs mt-0.5">{movie.rok_produkcji}</div>}
+      </div>
+    </div>
+  </Link>
+))}
             </div>
             <div className="flex items-center justify-center gap-4 mt-10">
               {hasMore && (
