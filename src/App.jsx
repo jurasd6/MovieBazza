@@ -7,6 +7,7 @@ import Actors from './pages/Actors';
 import Genres from './pages/Genres';
 import MyRatings from './pages/MyRatings';
 import MovieDetails from './pages/MovieDetails';
+import ActorDetails from './pages/ActorDetails';
 
 function App() {
   const [showForm, setShowForm] = useState(false);
@@ -262,6 +263,7 @@ function App() {
             <Route path="/gatunki" element={<Genres />} />
             <Route path="/oceny" element={<MyRatings user={user} />} />
             <Route path="/film/:id" element={<MovieDetails user={user} />} />
+            <Route path="/aktor/:id" element={<ActorDetails />} />
           </Routes>
         </main>
 
