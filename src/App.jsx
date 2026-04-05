@@ -258,7 +258,7 @@ function App() {
         {/* ── ROUTES (PODSTRONY) ── */}
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Movies />} />
+            <Route path="/" element={<Movies user={user} />} />
             <Route path="/aktorzy" element={<Actors />} />
             <Route path="/gatunki" element={<Genres />} />
             <Route path="/oceny" element={<MyRatings user={user} />} />
