@@ -9,6 +9,8 @@ export default function MovieDetails({ user }) {
   const [cast, setCast] = useState([]);
   const [directors, setDirectors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFav, setIsFav] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
   const [reviewForm, setReviewForm] = useState({ ocena: 10, tresc: '' });
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -20,6 +22,11 @@ export default function MovieDetails({ user }) {
     fetchCast();
     fetchDirectors();
   }, [id]);
+
+  useEffect(() => {
+    if (user) fetchFavoriteStatus();
+    else setIsFav(false);
+  }, [user, id]);
 
   async function fetchMovie() {
     const { data } = await supabase
@@ -56,6 +63,32 @@ export default function MovieDetails({ user }) {
     setDirectors(data || []);
   }
 
+  async function fetchFavoriteStatus() {
+    const { data } = await supabase
+      .from('ulubione')
+      .select('id')
+      .eq('id_uzytkownika', user.id)
+      .eq('id_filmu', id)
+      .single();
+    setIsFav(!!data);
+  }
+
+  async function toggleFavorite() {
+    if (!user || favLoading) return;
+    setFavLoading(true);
+    if (isFav) {
+      await supabase.from('ulubione').delete()
+        .eq('id_uzytkownika', user.id).eq('id_filmu', id);
+      setIsFav(false);
+    } else {
+      await supabase.from('ulubione').insert({
+        id_uzytkownika: user.id, id_filmu: parseInt(id)
+      });
+      setIsFav(true);
+    }
+    setFavLoading(false);
+  }
+
   async function handleSubmitReview() {
     setSubmitError('');
     if (!reviewForm.tresc.trim()) { setSubmitError('Treść recenzji nie może być pusta'); return; }
@@ -82,6 +115,7 @@ export default function MovieDetails({ user }) {
       <div className="w-8 h-8 border-2 border-[#e50914]/30 border-t-[#e50914] rounded-full animate-spin"/>
     </div>
   );
+
   if (!movie) return (
     <div className="text-center py-32 text-white/30">
       <div className="text-5xl mb-4">🎬</div>
@@ -104,7 +138,6 @@ export default function MovieDetails({ user }) {
 
       {/* ── HERO FILMU ── */}
       <div className="flex flex-col md:flex-row gap-10 mb-14">
-        {/* PLAKAT */}
         <div className="shrink-0">
           <img
             src={movie.plakat_url || `https://placehold.co/500x750/111/222?text=${encodeURIComponent(movie.tytul)}`}
@@ -114,9 +147,7 @@ export default function MovieDetails({ user }) {
           />
         </div>
 
-        {/* INFO */}
         <div className="flex-1 flex flex-col justify-end">
-          {/* Gatunki */}
           {genres.length > 0 && (
             <div className="flex gap-2 mb-4 flex-wrap">
               {genres.map(g => (
@@ -129,7 +160,6 @@ export default function MovieDetails({ user }) {
 
           <h1 className="text-4xl md:text-5xl font-black leading-tight mb-3">{movie.tytul}</h1>
 
-          {/* Meta: rok, reżyser, ocena */}
           <div className="flex items-center gap-4 text-white/40 text-sm mb-6 flex-wrap">
             {movie.rok_produkcji && (
               <span className="flex items-center gap-1.5">
@@ -151,10 +181,30 @@ export default function MovieDetails({ user }) {
             )}
           </div>
 
-          {/* OPIS */}
-          <p className="text-white/60 leading-relaxed text-base max-w-2xl">
+          <p className="text-white/60 leading-relaxed text-base max-w-2xl mb-8">
             {movie.opis || 'Brak opisu dla tego filmu.'}
           </p>
+
+          {/* PRZYCISK ULUBIONE */}
+          {user && (
+            <button
+              onClick={toggleFavorite}
+              disabled={favLoading}
+              className={`inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all border self-start cursor-pointer
+                ${isFav
+                  ? 'bg-[#e50914] border-[#e50914] text-white shadow-lg shadow-red-900/30 hover:bg-[#cc0812]'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/20'
+                }
+                ${favLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24"
+                fill={isFav ? 'currentColor' : 'none'}
+                stroke="currentColor" strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              {isFav ? 'W ulubionych' : 'Dodaj do ulubionych'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -199,7 +249,6 @@ export default function MovieDetails({ user }) {
           </h2>
         </div>
 
-        {/* FORMULARZ */}
         {user ? (
           <div className="bg-white/3 border border-white/8 p-6 rounded-2xl mb-8">
             <h3 className="font-bold mb-5 text-white/80">Twoja recenzja</h3>
@@ -229,18 +278,17 @@ export default function MovieDetails({ user }) {
               />
               {submitError && <div className="text-[#e50914] text-xs">{submitError}</div>}
               <button onClick={handleSubmitReview} disabled={submitLoading}
-                className="bg-[#e50914] hover:bg-[#f01020] disabled:opacity-40 text-white font-bold py-2.5 px-6 rounded-xl self-start transition-colors text-sm">
+                className="bg-[#e50914] hover:bg-[#f01020] disabled:opacity-40 text-white font-bold py-2.5 px-6 rounded-xl self-start transition-colors text-sm border-none cursor-pointer">
                 {submitLoading ? 'Publikowanie...' : 'Opublikuj recenzję'}
               </button>
             </div>
           </div>
         ) : (
           <div className="bg-white/3 border border-white/8 p-6 rounded-2xl mb-8 text-center text-white/30 text-sm">
-            <Link to="/" className="text-[#e50914] hover:underline">Zaloguj się</Link>, aby dodać recenzję.
+            Zaloguj się, aby dodać recenzję.
           </div>
         )}
 
-        {/* LISTA RECENZJI */}
         <div className="flex flex-col gap-4">
           {reviews.length === 0 ? (
             <div className="text-center py-12 text-white/20">
@@ -266,7 +314,6 @@ export default function MovieDetails({ user }) {
           )}
         </div>
       </section>
-
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
 import Movies from './pages/Movies';
@@ -7,7 +7,7 @@ import Actors from './pages/Actors';
 import Genres from './pages/Genres';
 import MyRatings from './pages/MyRatings';
 import MovieDetails from './pages/MovieDetails';
-import ActorDetails from './pages/ActorDetails';
+import Favorites from './pages/Favorites';
 
 function App() {
   const [showForm, setShowForm] = useState(false);
@@ -63,7 +63,7 @@ function App() {
   }, []);
 
   async function fetchProfile(userId) {
-    const { data } = await supabase.from('uzytkownicy').select('login, avatar_url').eq('id', userId).single();
+    const { data } = await supabase.from('uzytkownicy').select('login, avatar_url, rola').eq('id', userId).single();
     setProfile(data);
   }
 
@@ -157,7 +157,7 @@ function App() {
             </div>
             
             <div className="flex items-center gap-3">
-              {user && (
+              {profile?.rola === 'admin' && (
                 <>
                   <button onClick={() => { setFormType('actor'); setFormError(''); setShowForm(true); }} className="border border-white/10 text-white/70 hover:text-white hover:border-white/30 px-4 py-1.5 rounded-md transition-all text-sm font-medium">+ Aktor</button>
                   <button onClick={() => { setFormType('movie'); setFormError(''); setShowForm(true); }} className="bg-[#e50914] hover:bg-[#f01020] text-white px-4 py-1.5 rounded-md font-semibold transition-all text-sm shadow-lg shadow-red-900/30">+ Film</button>
@@ -177,7 +177,27 @@ function App() {
                           <div className="min-w-0"><div className="font-semibold text-sm text-white truncate">{profile?.login || 'Użytkownik'}</div><div className="text-xs text-white/30 truncate mt-0.5">{user.email}</div></div>
                         </div>
                         <div className="p-1.5">
-                          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/30 hover:bg-[#e50914]/10 hover:text-[#e50914] transition-all text-sm text-left">
+                          <Link to="/ulubione" onClick={() => setAuthDropdown(false)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                            Moje ulubione
+                          </Link>
+                          <Link to="/oceny" onClick={() => setAuthDropdown(false)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                            </svg>
+                            Moje recenzje
+                          </Link>
+                          <div className="h-px bg-white/5 my-1"/>
+                          <button onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/30 hover:bg-[#e50914]/10 hover:text-[#e50914] transition-all text-sm text-left border-none bg-transparent cursor-pointer">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                              <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                            </svg>
                             Wyloguj się
                           </button>
                         </div>
@@ -258,12 +278,12 @@ function App() {
         {/* ── ROUTES (PODSTRONY) ── */}
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Movies user={user} />} />
+            <Route path="/" element={<Movies />} />
             <Route path="/aktorzy" element={<Actors />} />
             <Route path="/gatunki" element={<Genres />} />
             <Route path="/oceny" element={<MyRatings user={user} />} />
             <Route path="/film/:id" element={<MovieDetails user={user} />} />
-            <Route path="/aktor/:id" element={<ActorDetails />} />
+            <Route path="/ulubione" element={<Favorites user={user} />} />
           </Routes>
         </main>
 
