@@ -9,6 +9,7 @@ import MyRatings from './pages/MyRatings';
 import MovieDetails from './pages/MovieDetails';
 import Favorites from './pages/Favorites';
 import ActorDetails from './pages/ActorDetails';
+import Profile from './pages/Profile';
 
 function ToastContainer({ toasts, removeToast }) {
   return (
@@ -219,6 +220,10 @@ function App() {
                           <div className="min-w-0"><div className="font-semibold text-sm text-white truncate">{profile?.login || 'Użytkownik'}</div><div className="text-xs text-white/30 truncate mt-0.5">{user.email}</div></div>
                         </div>
                         <div className="p-1.5">
+                          <Link to="/profil" onClick={() => setAuthDropdown(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                            Mój profil
+                          </Link>
                           <Link to="/ulubione" onClick={() => setAuthDropdown(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                             Moje ulubione
@@ -368,6 +373,7 @@ function App() {
             <Route path="/film/:id" element={<MovieDetails user={user} toast={toast} />} />
             <Route path="/ulubione" element={<Favorites user={user} toast={toast} />} />
             <Route path="/aktor/:id" element={<ActorDetails />} />
+            <Route path="/profil" element={<Profile user={user} toast={toast} />} />
           </Routes>
         </main>
 
