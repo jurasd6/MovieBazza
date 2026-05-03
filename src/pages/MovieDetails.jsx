@@ -20,6 +20,12 @@ export default function MovieDetails({ user, toast }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  // EDYCJA
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ ocena: 10, tresc: '' });
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
   useEffect(() => { fetchMovie(); fetchReviews(); fetchCast(); fetchDirectors(); }, [id]);
   useEffect(() => { if (user) fetchFavoriteStatus(); else setIsFav(false); }, [user, id]);
 
@@ -96,6 +102,29 @@ export default function MovieDetails({ user, toast }) {
     if (error) { setSubmitError(error.message); }
     else { setReviewForm({ ocena: 10, tresc: '' }); fetchReviews(); toast?.('Recenzja opublikowana!', 'success'); }
     setSubmitLoading(false);
+  }
+
+  function startEdit(review) {
+    setEditingId(review.id);
+    setEditForm({ ocena: review.ocena, tresc: review.tresc });
+    setDeleteConfirm(null);
+  }
+
+  async function handleEditReview(reviewId) {
+    if (!editForm.tresc.trim()) return;
+    setEditLoading(true);
+    const { error } = await supabase.from('recenzje').update({
+      ocena: parseInt(editForm.ocena), tresc: editForm.tresc
+    }).eq('id', reviewId);
+    if (!error) { fetchReviews(); setEditingId(null); toast?.('Recenzja zaktualizowana!', 'success'); }
+    setEditLoading(false);
+  }
+
+  async function handleDeleteReview(reviewId) {
+    await supabase.from('recenzje').delete().eq('id', reviewId);
+    setDeleteConfirm(null);
+    fetchReviews();
+    toast?.('Recenzja usunięta', 'info');
   }
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.ocena, 0) / reviews.length).toFixed(1) : null;
@@ -219,64 +248,137 @@ export default function MovieDetails({ user, toast }) {
               <div className="text-4xl mb-3">💬</div>
               <div className="text-sm">Nikt jeszcze nie ocenił tego filmu. Bądź pierwszy!</div>
             </div>
-          ) : reviews.map(review => (
-            <div key={review.id} className="bg-white/3 border border-white/5 rounded-xl overflow-hidden">
-              <div className="p-5 flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#e50914] flex items-center justify-center font-black text-sm shrink-0">
-                  {review.uzytkownicy?.login ? review.uzytkownicy.login.slice(0, 2).toUpperCase() : '?'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <span className="font-bold text-sm text-white/90">{review.uzytkownicy?.login || 'Anonim'}</span>
-                    <span className={`font-black text-sm ${ratingColor(review.ocena)}`}>★ {review.ocena}/10</span>
-                    <span className="text-white/25 text-xs">{new Date(review.data_dodania).toLocaleDateString('pl-PL')}</span>
-                  </div>
-                  <p className="text-white/60 text-sm leading-relaxed mb-3">{review.tresc}</p>
-                  <button onClick={() => toggleComments(review.id)}
-                    className="flex items-center gap-1.5 text-white/30 hover:text-white text-xs transition-colors border-none bg-transparent cursor-pointer">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    {openComments[review.id] ? 'Ukryj komentarze' : `Wyświetl komentarze (${comments[review.id]?.length ?? review.komentarze?.length ?? 0})`}
-                  </button>
-                </div>
-              </div>
+          ) : reviews.map(review => {
+            const isOwner = user?.id === review.id_uzytkownika;
+            const isEditing = editingId === review.id;
+            const isDeleting = deleteConfirm === review.id;
 
-              {openComments[review.id] && (
-                <div className="border-t border-white/5 bg-black/20 px-5 py-4">
-                  <div className="flex flex-col gap-3 mb-4">
-                    {!(comments[review.id]?.length) ? (
-                      <div className="text-white/20 text-xs py-1">Brak komentarzy. Bądź pierwszy!</div>
-                    ) : comments[review.id].map(c => (
-                      <div key={c.id} className="flex gap-3 items-start">
-                        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">
-                          {c.uzytkownicy?.login ? c.uzytkownicy.login.slice(0,2).toUpperCase() : '?'}
+            return (
+              <div key={review.id} className="bg-white/3 border border-white/5 rounded-xl overflow-hidden">
+                <div className="p-5 flex gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#e50914] flex items-center justify-center font-black text-sm shrink-0">
+                    {review.uzytkownicy?.login ? review.uzytkownicy.login.slice(0, 2).toUpperCase() : '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="font-bold text-sm text-white/90">{review.uzytkownicy?.login || 'Anonim'}</span>
+                        <span className={`font-black text-sm ${ratingColor(review.ocena)}`}>★ {review.ocena}/10</span>
+                        <span className="text-white/25 text-xs">{new Date(review.data_dodania).toLocaleDateString('pl-PL')}</span>
+                      </div>
+                      {/* PRZYCISKI EDYCJI — tylko właściciel */}
+                      {isOwner && !isEditing && (
+                        <div className="flex gap-1">
+                          <button onClick={() => startEdit(review)}
+                            className="flex items-center gap-1 text-white/25 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-white/5 transition-all border-none bg-transparent cursor-pointer">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edytuj
+                          </button>
+                          <button onClick={() => setDeleteConfirm(review.id)}
+                            className="flex items-center gap-1 text-white/25 hover:text-[#e50914] text-xs px-2 py-1 rounded-lg hover:bg-[#e50914]/8 transition-all border-none bg-transparent cursor-pointer">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                            Usuń
+                          </button>
                         </div>
-                        <div>
-                          <span className="text-white/60 text-xs font-bold mr-2">{c.uzytkownicy?.login || 'Anonim'}</span>
-                          <span className="text-white/30 text-xs">{new Date(c.data_dodania).toLocaleDateString('pl-PL')}</span>
-                          <p className="text-white/60 text-xs mt-0.5">{c.tresc}</p>
+                      )}
+                    </div>
+
+                    {/* TRYB EDYCJI */}
+                    {isEditing ? (
+                      <div className="flex flex-col gap-3 mt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-white/40">Ocena:</span>
+                          <div className="flex gap-1">
+                            {[...Array(10)].map((_, i) => {
+                              const val = i + 1;
+                              return (
+                                <button key={val} onClick={() => setEditForm(f => ({ ...f, ocena: val }))}
+                                  className={`w-7 h-7 rounded-md text-xs font-bold transition-all border-none cursor-pointer ${editForm.ocena >= val ? 'bg-[#e50914] text-white' : 'bg-white/5 text-white/30 hover:bg-white/10'}`}>
+                                  {val}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <span className="text-[#e50914] text-xs font-black">{editForm.ocena}/10</span>
+                        </div>
+                        <textarea value={editForm.tresc} onChange={e => setEditForm(f => ({ ...f, tresc: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/8 text-white px-3 py-2 rounded-lg text-sm outline-none focus:border-[#e50914]/50 resize-none min-h-[80px]" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEditReview(review.id)} disabled={editLoading}
+                            className="bg-[#e50914] hover:bg-[#f01020] disabled:opacity-40 text-white text-xs font-bold px-4 py-1.5 rounded-lg border-none cursor-pointer transition-colors">
+                            {editLoading ? '...' : 'Zapisz'}
+                          </button>
+                          <button onClick={() => setEditingId(null)}
+                            className="bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-xs font-medium px-4 py-1.5 rounded-lg border-none cursor-pointer transition-colors">
+                            Anuluj
+                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  {user ? (
-                    <div className="flex gap-2">
-                      <input type="text" placeholder="Napisz komentarz..."
-                        value={commentInputs[review.id] || ''}
-                        onChange={e => setCommentInputs(prev => ({ ...prev, [review.id]: e.target.value }))}
-                        onKeyDown={e => e.key === 'Enter' && handleAddComment(review.id)}
-                        className="flex-1 bg-white/5 border border-white/8 text-white placeholder-white/20 px-3 py-2 rounded-lg text-xs outline-none focus:border-[#e50914]/50 transition-colors" />
-                      <button onClick={() => handleAddComment(review.id)} disabled={commentLoading[review.id]}
-                        className="bg-[#e50914] hover:bg-[#f01020] disabled:opacity-40 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors border-none cursor-pointer">
-                        {commentLoading[review.id] ? '...' : 'Wyślij'}
+                    ) : isDeleting ? (
+                      // POTWIERDZENIE USUNIĘCIA
+                      <div className="flex items-center gap-3 mt-2 bg-[#e50914]/8 border border-[#e50914]/20 px-3 py-2 rounded-lg">
+                        <span className="text-white/60 text-xs flex-1">Na pewno usunąć tę recenzję?</span>
+                        <button onClick={() => handleDeleteReview(review.id)}
+                          className="bg-[#e50914] text-white text-xs font-bold px-3 py-1 rounded-md border-none cursor-pointer hover:bg-[#cc0812] transition-colors">
+                          Usuń
+                        </button>
+                        <button onClick={() => setDeleteConfirm(null)}
+                          className="text-white/30 hover:text-white text-xs px-2 py-1 border-none bg-transparent cursor-pointer transition-colors">
+                          Anuluj
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-white/60 text-sm leading-relaxed mb-3">{review.tresc}</p>
+                    )}
+
+                    {!isEditing && !isDeleting && (
+                      <button onClick={() => toggleComments(review.id)}
+                        className="flex items-center gap-1.5 text-white/30 hover:text-white text-xs transition-colors border-none bg-transparent cursor-pointer mt-1">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        {openComments[review.id] ? 'Ukryj komentarze' : `Wyświetl komentarze (${comments[review.id]?.length ?? review.komentarze?.length ?? 0})`}
                       </button>
-                    </div>
-                  ) : (
-                    <div className="text-white/20 text-xs">Zaloguj się, aby skomentować.</div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {openComments[review.id] && !isEditing && (
+                  <div className="border-t border-white/5 bg-black/20 px-5 py-4">
+                    <div className="flex flex-col gap-3 mb-4">
+                      {!(comments[review.id]?.length) ? (
+                        <div className="text-white/20 text-xs py-1">Brak komentarzy. Bądź pierwszy!</div>
+                      ) : comments[review.id].map(c => (
+                        <div key={c.id} className="flex gap-3 items-start">
+                          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">
+                            {c.uzytkownicy?.login ? c.uzytkownicy.login.slice(0,2).toUpperCase() : '?'}
+                          </div>
+                          <div>
+                            <span className="text-white/60 text-xs font-bold mr-2">{c.uzytkownicy?.login || 'Anonim'}</span>
+                            <span className="text-white/30 text-xs">{new Date(c.data_dodania).toLocaleDateString('pl-PL')}</span>
+                            <p className="text-white/60 text-xs mt-0.5">{c.tresc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {user ? (
+                      <div className="flex gap-2">
+                        <input type="text" placeholder="Napisz komentarz..."
+                          value={commentInputs[review.id] || ''}
+                          onChange={e => setCommentInputs(prev => ({ ...prev, [review.id]: e.target.value }))}
+                          onKeyDown={e => e.key === 'Enter' && handleAddComment(review.id)}
+                          className="flex-1 bg-white/5 border border-white/8 text-white placeholder-white/20 px-3 py-2 rounded-lg text-xs outline-none focus:border-[#e50914]/50 transition-colors" />
+                        <button onClick={() => handleAddComment(review.id)} disabled={commentLoading[review.id]}
+                          className="bg-[#e50914] hover:bg-[#f01020] disabled:opacity-40 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors border-none cursor-pointer">
+                          {commentLoading[review.id] ? '...' : 'Wyślij'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-white/20 text-xs">Zaloguj się, aby skomentować.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>
