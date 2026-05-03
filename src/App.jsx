@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Link } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
@@ -10,10 +10,54 @@ import MovieDetails from './pages/MovieDetails';
 import Favorites from './pages/Favorites';
 import ActorDetails from './pages/ActorDetails';
 
+// ── TOAST SYSTEM ──
+function ToastContainer({ toasts, removeToast }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
+      {toasts.map(t => (
+        <div key={t.id}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium pointer-events-auto
+            animate-[slideIn_0.2s_ease]
+            ${t.type === 'success' ? 'bg-[#0f0f0f] border-emerald-500/30 text-white' :
+              t.type === 'error'   ? 'bg-[#0f0f0f] border-[#e50914]/30 text-white' :
+                                     'bg-[#0f0f0f] border-white/10 text-white'}`}>
+          {t.type === 'success' && (
+            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          )}
+          {t.type === 'error' && (
+            <div className="w-5 h-5 rounded-full bg-[#e50914]/20 flex items-center justify-center shrink-0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e50914" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+          )}
+          {t.type === 'info' && (
+            <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+          )}
+          <span>{t.message}</span>
+          <button onClick={() => removeToast(t.id)}
+            className="ml-1 text-white/20 hover:text-white transition-colors border-none bg-transparent cursor-pointer text-base leading-none">×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState('movie');
   const [genres, setGenres] = useState([]);
+
+  // TOASTY
+  const [toasts, setToasts] = useState([]);
+  const toast = useCallback((message, type = 'success', duration = 3000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+  }, []);
+  const removeToast = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);
 
   // AUTH
   const [user, setUser] = useState(null);
@@ -81,6 +125,7 @@ function App() {
     if (error) { setAuthError(error.message); setAuthLoading(false); return; }
     setAuthLoading(false); setRegisterSuccess(true);
     setAuthForm({ email: '', password: '', nickname: '' });
+    toast('Konto utworzone! Możesz się zalogować.', 'success');
   }
 
   async function handleLogin() {
@@ -89,11 +134,13 @@ function App() {
     if (error) { setAuthError(error.message); setAuthLoading(false); return; }
     setAuthLoading(false); setAuthDropdown(false);
     setAuthForm({ email: '', password: '', nickname: '' });
+    toast('Zalogowano pomyślnie!', 'success');
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
     setAuthDropdown(false);
+    toast('Wylogowano.', 'info');
   }
 
   async function handleAddMovie() {
@@ -112,7 +159,8 @@ function App() {
     }
     setFormLoading(false); setShowForm(false);
     setMovieForm({ tytul: '', opis: '', rok_produkcji: '', plakat_url: '', id_gatunku: '' });
-    window.location.reload(); // Prosty sposób na odświeżenie danych na podstronie po dodaniu
+    toast(`Film "${movieForm.tytul}" został dodany!`, 'success');
+    window.location.reload();
   }
 
   async function handleAddActor() {
@@ -123,7 +171,8 @@ function App() {
     if (error) { setFormError(error.message); setFormLoading(false); return; }
     setFormLoading(false); setShowForm(false);
     setActorForm({ imie_nazwisko: '', zdjecie_url: '' });
-    window.location.reload(); 
+    toast(`Aktor "${actorForm.imie_nazwisko}" został dodany!`, 'success');
+    window.location.reload();
   }
 
   const getInitials = () => {
@@ -138,6 +187,9 @@ function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-[#080808] text-white flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
 
+        {/* TOASTY */}
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+
         {/* ── NAVBAR ── */}
         <nav className="sticky top-0 z-50 w-full backdrop-blur-md bg-black/80 border-b border-white/5">
           <div className="max-w-[1600px] mx-auto px-10 h-16 flex items-center justify-between">
@@ -151,12 +203,11 @@ function App() {
                 { path: '/gatunki', label: 'Gatunki' },
                 { path: '/oceny', label: 'Moje Oceny' }
               ].map(link => (
-                <NavLink key={link.path} to={link.path} className={({isActive}) => `text-sm font-medium transition-colors duration-200 tracking-wide ${isActive ? 'text-white' : 'text-[#666] hover:text-white'}`}>
+                <NavLink key={link.path} to={link.path} className={({isActive}) => `text-sm font-medium transition-colors duration-200 tracking-wide no-underline ${isActive ? 'text-white' : 'text-[#666] hover:text-white'}`}>
                   {link.label}
                 </NavLink>
               ))}
             </div>
-            
             <div className="flex items-center gap-3">
               {profile?.rola === 'admin' && (
                 <>
@@ -168,7 +219,6 @@ function App() {
                 <button onClick={() => setAuthDropdown(v => !v)} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all text-xs font-bold ${user ? 'bg-[#e50914] text-white shadow-lg shadow-red-900/40' : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/30 hover:text-white'}`}>
                   {user ? <span>{getInitials()}</span> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>}
                 </button>
-
                 {authDropdown && (
                   <div className="absolute right-0 top-[calc(100%+8px)] w-72 bg-[#0f0f0f] border border-white/8 rounded-xl shadow-2xl overflow-hidden z-50">
                     {user ? (
@@ -178,27 +228,17 @@ function App() {
                           <div className="min-w-0"><div className="font-semibold text-sm text-white truncate">{profile?.login || 'Użytkownik'}</div><div className="text-xs text-white/30 truncate mt-0.5">{user.email}</div></div>
                         </div>
                         <div className="p-1.5">
-                          <Link to="/ulubione" onClick={() => setAuthDropdown(false)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                            </svg>
+                          <Link to="/ulubione" onClick={() => setAuthDropdown(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                             Moje ulubione
                           </Link>
-                          <Link to="/oceny" onClick={() => setAuthDropdown(false)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                            </svg>
+                          <Link to="/oceny" onClick={() => setAuthDropdown(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/50 hover:bg-white/5 hover:text-white transition-all text-sm no-underline">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                             Moje recenzje
                           </Link>
                           <div className="h-px bg-white/5 my-1"/>
-                          <button onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/30 hover:bg-[#e50914]/10 hover:text-[#e50914] transition-all text-sm text-left border-none bg-transparent cursor-pointer">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                              <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-                            </svg>
+                          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/30 hover:bg-[#e50914]/10 hover:text-[#e50914] transition-all text-sm text-left border-none bg-transparent cursor-pointer">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                             Wyloguj się
                           </button>
                         </div>
@@ -239,7 +279,7 @@ function App() {
           </div>
         </nav>
 
-        {/* ── MODAL DODAWANIA ── */}
+        {/* ── MODAL ── */}
         {showForm && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[2000] p-4">
             <div className="bg-[#0f0f0f] border border-white/8 rounded-2xl p-8 w-full max-w-lg shadow-2xl">
@@ -276,20 +316,18 @@ function App() {
           </div>
         )}
 
-        {/* ── ROUTES (PODSTRONY) ── */}
         <main className="flex-1">
           <Routes>
-            <Route path="/" element={<Movies />} />
+            <Route path="/" element={<Movies toast={toast} user={user} />} />
             <Route path="/aktorzy" element={<Actors />} />
             <Route path="/gatunki" element={<Genres />} />
             <Route path="/oceny" element={<MyRatings user={user} />} />
-            <Route path="/film/:id" element={<MovieDetails user={user} />} />
-            <Route path="/ulubione" element={<Favorites user={user} />} />
+            <Route path="/film/:id" element={<MovieDetails user={user} toast={toast} />} />
+            <Route path="/ulubione" element={<Favorites user={user} toast={toast} />} />
             <Route path="/aktor/:id" element={<ActorDetails />} />
           </Routes>
         </main>
 
-        {/* ── FOOTER ── */}
         <footer className="border-t border-white/5 mt-auto">
           <div className="max-w-[1600px] mx-auto px-10 py-8 flex items-center justify-between">
             <div className="text-lg font-black">MOVIE<span className="text-[#e50914]">BAZZA</span></div>

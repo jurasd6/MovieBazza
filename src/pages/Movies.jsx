@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 const VISIBLE_STEP = 6;
 
-export default function Movies({ user }) {
+export default function Movies({ user, toast }) {
   const [movies, setMovies] = useState([]);
   const [genres, setGenres] = useState([]);
   const [moviesLoading, setMoviesLoading] = useState(true);

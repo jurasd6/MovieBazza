@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-export default function Favorites({ user }) {
+export default function Favorites({ user, toast }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +30,7 @@ async function fetchFavorites() {
       .eq('id_uzytkownika', user.id)
       .eq('id_filmu', movieId);
     setFavorites(prev => prev.filter(f => f.id_filmu !== movieId));
+toast('Usunięto z ulubionych', 'info');
   }
 
   if (!user) return (
