@@ -20,11 +20,17 @@ export default function MovieDetails({ user, toast }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  // EDYCJA
+  // EDYCJA/USUWANIE RECENZJI
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ ocena: 10, tresc: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // EDYCJA/USUWANIE KOMENTARZY
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [editCommentLoading, setEditCommentLoading] = useState(false);
+  const [deleteCommentConfirm, setDeleteCommentConfirm] = useState(null);
 
   useEffect(() => { fetchMovie(); fetchReviews(); fetchCast(); fetchDirectors(); }, [id]);
   useEffect(() => { if (user) fetchFavoriteStatus(); else setIsFav(false); }, [user, id]);
@@ -59,12 +65,10 @@ export default function MovieDetails({ user, toast }) {
     setFavLoading(true);
     if (isFav) {
       await supabase.from('ulubione').delete().eq('id_uzytkownika', user.id).eq('id_filmu', id);
-      setIsFav(false);
-      toast?.('Usunięto z ulubionych', 'info');
+      setIsFav(false); toast?.('Usunięto z ulubionych', 'info');
     } else {
       await supabase.from('ulubione').insert({ id_uzytkownika: user.id, id_filmu: parseInt(id) });
-      setIsFav(true);
-      toast?.('Dodano do ulubionych! ❤️', 'success');
+      setIsFav(true); toast?.('Dodano do ulubionych! ❤️', 'success');
     }
     setFavLoading(false);
   }
@@ -91,6 +95,29 @@ export default function MovieDetails({ user, toast }) {
     toast?.('Komentarz dodany!', 'success');
   }
 
+  function startEditComment(comment) {
+    setEditingCommentId(comment.id);
+    setEditCommentText(comment.tresc);
+    setDeleteCommentConfirm(null);
+  }
+
+  async function handleEditComment(reviewId, commentId) {
+    if (!editCommentText.trim()) return;
+    setEditCommentLoading(true);
+    await supabase.from('komentarze').update({ tresc: editCommentText }).eq('id', commentId);
+    setEditingCommentId(null);
+    await fetchComments(reviewId);
+    setEditCommentLoading(false);
+    toast?.('Komentarz zaktualizowany!', 'success');
+  }
+
+  async function handleDeleteComment(reviewId, commentId) {
+    await supabase.from('komentarze').delete().eq('id', commentId);
+    setDeleteCommentConfirm(null);
+    await fetchComments(reviewId);
+    toast?.('Komentarz usunięty', 'info');
+  }
+
   async function handleSubmitReview() {
     setSubmitError('');
     if (!reviewForm.tresc.trim()) { setSubmitError('Treść recenzji nie może być pusta'); return; }
@@ -113,17 +140,15 @@ export default function MovieDetails({ user, toast }) {
   async function handleEditReview(reviewId) {
     if (!editForm.tresc.trim()) return;
     setEditLoading(true);
-    const { error } = await supabase.from('recenzje').update({
-      ocena: parseInt(editForm.ocena), tresc: editForm.tresc
-    }).eq('id', reviewId);
-    if (!error) { fetchReviews(); setEditingId(null); toast?.('Recenzja zaktualizowana!', 'success'); }
+    await supabase.from('recenzje').update({ ocena: parseInt(editForm.ocena), tresc: editForm.tresc }).eq('id', reviewId);
+    fetchReviews(); setEditingId(null);
     setEditLoading(false);
+    toast?.('Recenzja zaktualizowana!', 'success');
   }
 
   async function handleDeleteReview(reviewId) {
     await supabase.from('recenzje').delete().eq('id', reviewId);
-    setDeleteConfirm(null);
-    fetchReviews();
+    setDeleteConfirm(null); fetchReviews();
     toast?.('Recenzja usunięta', 'info');
   }
 
@@ -266,7 +291,6 @@ export default function MovieDetails({ user, toast }) {
                         <span className={`font-black text-sm ${ratingColor(review.ocena)}`}>★ {review.ocena}/10</span>
                         <span className="text-white/25 text-xs">{new Date(review.data_dodania).toLocaleDateString('pl-PL')}</span>
                       </div>
-                      {/* PRZYCISKI EDYCJI — tylko właściciel */}
                       {isOwner && !isEditing && (
                         <div className="flex gap-1">
                           <button onClick={() => startEdit(review)}
@@ -283,7 +307,6 @@ export default function MovieDetails({ user, toast }) {
                       )}
                     </div>
 
-                    {/* TRYB EDYCJI */}
                     {isEditing ? (
                       <div className="flex flex-col gap-3 mt-2">
                         <div className="flex items-center gap-2">
@@ -315,17 +338,12 @@ export default function MovieDetails({ user, toast }) {
                         </div>
                       </div>
                     ) : isDeleting ? (
-                      // POTWIERDZENIE USUNIĘCIA
                       <div className="flex items-center gap-3 mt-2 bg-[#e50914]/8 border border-[#e50914]/20 px-3 py-2 rounded-lg">
                         <span className="text-white/60 text-xs flex-1">Na pewno usunąć tę recenzję?</span>
                         <button onClick={() => handleDeleteReview(review.id)}
-                          className="bg-[#e50914] text-white text-xs font-bold px-3 py-1 rounded-md border-none cursor-pointer hover:bg-[#cc0812] transition-colors">
-                          Usuń
-                        </button>
+                          className="bg-[#e50914] text-white text-xs font-bold px-3 py-1 rounded-md border-none cursor-pointer hover:bg-[#cc0812] transition-colors">Usuń</button>
                         <button onClick={() => setDeleteConfirm(null)}
-                          className="text-white/30 hover:text-white text-xs px-2 py-1 border-none bg-transparent cursor-pointer transition-colors">
-                          Anuluj
-                        </button>
+                          className="text-white/30 hover:text-white text-xs px-2 py-1 border-none bg-transparent cursor-pointer transition-colors">Anuluj</button>
                       </div>
                     ) : (
                       <p className="text-white/60 text-sm leading-relaxed mb-3">{review.tresc}</p>
@@ -346,18 +364,66 @@ export default function MovieDetails({ user, toast }) {
                     <div className="flex flex-col gap-3 mb-4">
                       {!(comments[review.id]?.length) ? (
                         <div className="text-white/20 text-xs py-1">Brak komentarzy. Bądź pierwszy!</div>
-                      ) : comments[review.id].map(c => (
-                        <div key={c.id} className="flex gap-3 items-start">
-                          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">
-                            {c.uzytkownicy?.login ? c.uzytkownicy.login.slice(0,2).toUpperCase() : '?'}
+                      ) : comments[review.id].map(c => {
+                        const isCommentOwner = user?.id === c.id_uzytkownika;
+                        const isEditingComment = editingCommentId === c.id;
+                        const isDeletingComment = deleteCommentConfirm === c.id;
+
+                        return (
+                          <div key={c.id} className="flex gap-3 items-start">
+                            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold shrink-0">
+                              {c.uzytkownicy?.login ? c.uzytkownicy.login.slice(0,2).toUpperCase() : '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div>
+                                  <span className="text-white/60 text-xs font-bold mr-2">{c.uzytkownicy?.login || 'Anonim'}</span>
+                                  <span className="text-white/30 text-xs">{new Date(c.data_dodania).toLocaleDateString('pl-PL')}</span>
+                                </div>
+                                {isCommentOwner && !isEditingComment && !isDeletingComment && (
+                                  <div className="flex gap-1">
+                                    <button onClick={() => startEditComment(c)}
+                                      className="text-white/20 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-white/5 transition-all border-none bg-transparent cursor-pointer">
+                                      Edytuj
+                                    </button>
+                                    <button onClick={() => setDeleteCommentConfirm(c.id)}
+                                      className="text-white/20 hover:text-[#e50914] text-xs px-1.5 py-0.5 rounded hover:bg-[#e50914]/8 transition-all border-none bg-transparent cursor-pointer">
+                                      Usuń
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {isEditingComment ? (
+                                <div className="flex gap-2 mt-1">
+                                  <input type="text" value={editCommentText}
+                                    onChange={e => setEditCommentText(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleEditComment(review.id, c.id)}
+                                    className="flex-1 bg-white/5 border border-white/8 text-white px-2 py-1 rounded-md text-xs outline-none focus:border-[#e50914]/50" />
+                                  <button onClick={() => handleEditComment(review.id, c.id)} disabled={editCommentLoading}
+                                    className="bg-[#e50914] text-white text-xs px-3 py-1 rounded-md border-none cursor-pointer hover:bg-[#cc0812] transition-colors">
+                                    {editCommentLoading ? '...' : 'Zapisz'}
+                                  </button>
+                                  <button onClick={() => setEditingCommentId(null)}
+                                    className="text-white/30 hover:text-white text-xs px-2 py-1 border-none bg-transparent cursor-pointer transition-colors">
+                                    Anuluj
+                                  </button>
+                                </div>
+                              ) : isDeletingComment ? (
+                                <div className="flex items-center gap-2 mt-1 bg-[#e50914]/8 border border-[#e50914]/20 px-2 py-1 rounded-md">
+                                  <span className="text-white/50 text-xs flex-1">Usunąć?</span>
+                                  <button onClick={() => handleDeleteComment(review.id, c.id)}
+                                    className="bg-[#e50914] text-white text-xs px-2 py-0.5 rounded border-none cursor-pointer hover:bg-[#cc0812] transition-colors">Tak</button>
+                                  <button onClick={() => setDeleteCommentConfirm(null)}
+                                    className="text-white/30 hover:text-white text-xs border-none bg-transparent cursor-pointer transition-colors">Nie</button>
+                                </div>
+                              ) : (
+                                <p className="text-white/60 text-xs mt-0.5">{c.tresc}</p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-white/60 text-xs font-bold mr-2">{c.uzytkownicy?.login || 'Anonim'}</span>
-                            <span className="text-white/30 text-xs">{new Date(c.data_dodania).toLocaleDateString('pl-PL')}</span>
-                            <p className="text-white/60 text-xs mt-0.5">{c.tresc}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     {user ? (
                       <div className="flex gap-2">
