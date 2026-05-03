@@ -8,6 +8,7 @@ import Genres from './pages/Genres';
 import MyRatings from './pages/MyRatings';
 import MovieDetails from './pages/MovieDetails';
 import Favorites from './pages/Favorites';
+import ActorDetails from './pages/ActorDetails';
 
 function App() {
   const [showForm, setShowForm] = useState(false);
@@ -284,6 +285,7 @@ function App() {
             <Route path="/oceny" element={<MyRatings user={user} />} />
             <Route path="/film/:id" element={<MovieDetails user={user} />} />
             <Route path="/ulubione" element={<Favorites user={user} />} />
+            <Route path="/aktor/:id" element={<ActorDetails />} />
           </Routes>
         </main>
 
